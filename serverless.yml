@@ -1,0 +1,30 @@
+service: s3-trigger
+frameworkVersion: '3'
+
+custom:
+  bucket: joselito-s3
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:*
+          Resource: "*"
+
+functions:
+  hello:
+    handler: handler.hello
+    events:
+      - s3:
+          bucket: ${self:custom.bucket}
+          event: s3:ObjectCreated:*
+          rules:
+            - suffix: .csv
+
+plugins:
+  - serverless-esbuild
+  - serverless-offline
