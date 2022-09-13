@@ -2,7 +2,7 @@ service: s3-trigger
 frameworkVersion: '3'
 
 custom:
-  bucket: joselito-s3
+  bucket: csv-file-parser
 
 provider:
   name: aws
@@ -14,10 +14,15 @@ provider:
           Action:
             - s3:*
           Resource: "*"
+  memorySize: 512
+  timeout: 180
+  environment:
+    CHUNK_SIZE: 200
 
 functions:
-  hello:
-    handler: handler.hello
+  s3FileParser:
+    name: lambda-file-processor
+    handler: handler.s3FileParser
     events:
       - s3:
           bucket: ${self:custom.bucket}
@@ -25,6 +30,36 @@ functions:
           rules:
             - suffix: .csv
 
+stepFunctions:
+  stateMachines:
+    processfile:
+      name: fileProcessStateMachine
+      definition:
+        Comment: "Orchestrates the processing of files of arbitary size"
+        StartAt: ProcessChunk
+        States:
+          ProcessChunk:
+            Type: Task
+            Resource: 
+              Fn::GetAtt: [s3FileParser, Arn]
+            Next: ChoiceState
+          ChoiceState:
+            Type: Choice
+            Choices:
+              - Variable: "$.s3FileParser.results['finished']"
+                BooleanEquals: false 
+                Next: ProcessChunk
+              - Variable: "$.s3FileParser.results['finished']"
+                BooleanEquals: true
+                Next: Finish
+            Default: DefaultState
+          DefaultState:
+            Type: Fail
+            Cause: "No Matches!"
+          Finish:
+            Type: Succeed
+
 plugins:
   - serverless-esbuild
   - serverless-offline
+  - serverless-step-functions
