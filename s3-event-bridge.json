@@ -1,0 +1,28 @@
+{
+  "version": "0",
+  "id": "01b72def-b5e9-6453-b3c3-dc56927cce86",
+  "detail-type": "Object Created",
+  "source": "aws.s3",
+  "account": "862433105380",
+  "time": "2022-09-14T12:48:45Z",
+  "region": "us-east-1",
+  "resources": [
+    "arn:aws:s3:::csv-file-parser"
+  ],
+  "detail": {
+    "version": "0",
+    "bucket": {
+      "name": "csv-file-parser"
+    },
+    "object": {
+      "key": "paraguay_cities.csv",
+      "size": 2142,
+      "etag": "b9aa8c232b6de4b542944f73b1d8d657",
+      "sequencer": "006321CDADE8ECD41E"
+    },
+    "request-id": "3999041QM0ZH6HAS",
+    "requester": "862433105380",
+    "source-ip-address": "179.125.129.161",
+    "reason": "PutObject"
+  }
+}

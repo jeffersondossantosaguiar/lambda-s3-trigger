@@ -1,0 +1,38 @@
+{
+  "Records": [
+    {
+      "eventVersion": "2.1",
+      "eventSource": "aws:s3",
+      "awsRegion": "us-east-1",
+      "eventTime": "2022-09-13T17:55:26.337Z",
+      "eventName": "ObjectCreated:Put",
+      "userIdentity": {
+        "principalId": "A3THY96M9CV9CI"
+      },
+      "requestParameters": {
+        "sourceIPAddress": "179.125.129.161"
+      },
+      "responseElements": {
+        "x-amz-request-id": "Z5P6NT8Z54VCNHKZ",
+        "x-amz-id-2": "W1TAEDUxbbFPdd0V1rekT8Dbyp4WD6dP68yivFNk31ahSo3/A/Xp/ToCiBesrZKIPsi3HmlNSL6p9uyg1z5ke06yiDBtqg95"
+      },
+      "s3": {
+        "s3SchemaVersion": "1.0",
+        "configurationId": "e49382ee-7c93-4ccc-a9c4-ff3f014323e6",
+        "bucket": {
+          "name": "csv-file-parser",
+          "ownerIdentity": [
+            "Object"
+          ],
+          "arn": "arn:aws:s3:::csv-file-parser"
+        },
+        "object": {
+          "key": "paraguay_cities.csv",
+          "size": 2142,
+          "eTag": "b9aa8c232b6de4b542944f73b1d8d657",
+          "sequencer": "006320C40E452098B9"
+        }
+      }
+    }
+  ]
+}
