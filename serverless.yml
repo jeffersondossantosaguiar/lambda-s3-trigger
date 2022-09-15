@@ -1,5 +1,5 @@
 service: s3-trigger
-frameworkVersion: '3'
+frameworkVersion: "3"
 
 custom:
   bucket: csv-file-parser
@@ -23,12 +23,6 @@ functions:
   s3FileParser:
     name: lambda-file-processor
     handler: handler.s3FileParser
-    events:
-      - s3:
-          bucket: ${self:custom.bucket}
-          event: s3:ObjectCreated:*
-          rules:
-            - suffix: .csv
 
 stepFunctions:
   stateMachines:
@@ -40,14 +34,14 @@ stepFunctions:
         States:
           ProcessChunk:
             Type: Task
-            Resource: 
+            Resource:
               Fn::GetAtt: [s3FileParser, Arn]
             Next: ChoiceState
           ChoiceState:
             Type: Choice
             Choices:
               - Variable: "$.s3FileParser.results['finished']"
-                BooleanEquals: false 
+                BooleanEquals: false
                 Next: ProcessChunk
               - Variable: "$.s3FileParser.results['finished']"
                 BooleanEquals: true
@@ -58,6 +52,55 @@ stepFunctions:
             Cause: "No Matches!"
           Finish:
             Type: Succeed
+
+resources:
+  Resources:
+    S3Bucket:
+      Type: "AWS::S3::Bucket"
+      Properties:
+        BucketName: ${self:custom.bucket}
+        NotificationConfiguration:
+          EventBridgeConfiguration:
+            EventBridgeEnabled: true
+    Role:
+      Type: "AWS::IAM::Role"
+      Properties:
+        RoleName: Amazon_EventBridge_Invoke_Step_Functions
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - "events.amazonaws.com"
+              Action:
+                - sts:AssumeRole
+        Policies:
+          - PolicyName: Amazon_EventBridge_Invoke_Step_Functions
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: "*"
+                  Resource: "*"
+    EventRule:
+      Type: AWS::Events::Rule
+      Properties:
+        Name: s3-trigger-event
+        State: "ENABLED"
+        EventPattern:
+          source:
+            - aws.s3
+          detail-type:
+            - "Object Created"
+          detail:
+            bucket:
+              name:
+                - ${self:custom.bucket}
+        Targets:
+          - Arn: arn:aws:states:us-east-1:862433105380:stateMachine:fileProcessStateMachine
+            Id: "fileProcessStateMachine"
+            RoleArn: arn:aws:iam::862433105380:role/Amazon_EventBridge_Invoke_Step_Functions
 
 plugins:
   - serverless-esbuild
