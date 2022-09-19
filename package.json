@@ -1,5 +1,5 @@
 {
-  "name": "s3-trigger",
+  "name": "s3-csv-parser",
   "version": "1.0.0",
   "description": "",
   "scripts": {

@@ -1,11 +1,14 @@
-service: s3-trigger
+service: s3-csv-parser
 frameworkVersion: "3"
 
 custom:
   bucket: csv-file-parser
+  stateMachineName: csv-process-state-machine
+  roleName: amazon-event-bridge-invoke-step-functions
 
 provider:
   name: aws
+  region: us-east-1
   runtime: nodejs14.x
   iam:
     role:
@@ -17,7 +20,7 @@ provider:
   memorySize: 512
   timeout: 180
   environment:
-    CHUNK_SIZE: 200
+    CHUNK_SIZE: 100000
 
 functions:
   s3FileParser:
@@ -27,9 +30,8 @@ functions:
 stepFunctions:
   stateMachines:
     processfile:
-      name: fileProcessStateMachine
+      name: ${self:custom.stateMachineName}
       definition:
-        Comment: "Orchestrates the processing of files of arbitary size"
         StartAt: ProcessChunk
         States:
           ProcessChunk:
@@ -65,7 +67,7 @@ resources:
     Role:
       Type: "AWS::IAM::Role"
       Properties:
-        RoleName: Amazon_EventBridge_Invoke_Step_Functions
+        RoleName: ${self:custom.roleName}
         AssumeRolePolicyDocument:
           Version: "2012-10-17"
           Statement:
@@ -76,7 +78,7 @@ resources:
               Action:
                 - sts:AssumeRole
         Policies:
-          - PolicyName: Amazon_EventBridge_Invoke_Step_Functions
+          - PolicyName: ${self:custom.roleName}
             PolicyDocument:
               Version: "2012-10-17"
               Statement:
@@ -98,9 +100,9 @@ resources:
               name:
                 - ${self:custom.bucket}
         Targets:
-          - Arn: arn:aws:states:us-east-1:862433105380:stateMachine:fileProcessStateMachine
-            Id: "fileProcessStateMachine"
-            RoleArn: arn:aws:iam::862433105380:role/Amazon_EventBridge_Invoke_Step_Functions
+          - Arn: arn:aws:states:${aws:region}:${aws:accountId}:stateMachine:${self:custom.stateMachineName}
+            Id: "${self:custom.stateMachineName}"
+            RoleArn: arn:aws:iam::${aws:accountId}:role/${self:custom.roleName}
 
 plugins:
   - serverless-esbuild

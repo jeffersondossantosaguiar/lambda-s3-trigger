@@ -1,1 +1,1 @@
-# lambda-s3-trigger
+# lambda-s3-csv-parser

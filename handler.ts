@@ -1,12 +1,12 @@
 import { S3 } from 'aws-sdk';
 import * as csv from 'fast-csv';
-import { pipeline, Transform } from 'stream';
-import { promisify } from 'util';
+import { Transform } from 'stream';
+import { S3EventBridge } from './interfaces/s3-event-bridge.interface';
 
 const s3 = new S3({ apiVersion: 'latest' });
-const pipelineAsync = promisify(pipeline);
+const chunkSize = +process.env['CHUNK_SIZE']!;
 
-export async function s3FileParser(event, context, cb) {
+export async function s3FileParser(event: S3EventBridge) {
 
   const bucket = event.detail.bucket.name;
   const key = decodeURIComponent(event.detail.object.key.replace(/\+/g, ' '));
@@ -16,18 +16,15 @@ export async function s3FileParser(event, context, cb) {
     Key: key,
   };
 
-  let fileSize;
+  let fileSize: number | undefined = 0;
+
   await s3.headObject(params).promise().then(result => fileSize = result.ContentLength);
 
-  const chunkSize = +process.env['CHUNK_SIZE']!;
-
-  console.log({ fileSize, chunkSize });
-
-  let startByte = 0;
-
-  console.log(event['s3FileParser']);
+  //console.log(event['s3FileParser']); Event with file metadata
 
   if (!event['s3FileParser']) {
+    const startByte = 0;
+    let headers: string[];
     let endByte = chunkSize;
 
     if (endByte > fileSize) endByte = fileSize;
@@ -39,31 +36,26 @@ export async function s3FileParser(event, context, cb) {
       let lastNewline = 0;
       stream
         .pipe(new Transform({
-          transform(chunk, enconding, cb) {
-            const dataString = chunk.toString();
-            lastNewline = dataString.lastIndexOf('\n');
-
-            cb(null, dataString.slice(0, lastNewline));
+          transform(chunk: Buffer, enconding, cb) {
+            lastNewline = chunk.lastIndexOf('\n');
+            cb(null, chunk.subarray(0, lastNewline));
           }
         }))
-        .pipe(csv.parse({
-          headers: ['name', 'lat', 'lng', 'countryCode', 'adminName']
-        }))
-        .on('data', (data) => { console.log(data); })
+        .pipe(csv.parse({ headers: true }))
+        .on('headers', (h) => headers = h)
+        .on('data', (data) => { console.log(data); }) //Data parsed 
         .on('error', (error) => {
           console.error(error);
           reject(error);
         })
         .on('end', (rows, data) => {
-          console.log(`Parsed ${rows} rows`);
+          console.log(`Parsed ${rows} rows`); //Total rows parsed
           const finalIteration = isFinalIteration(startByte, fileSize, chunkSize);
-
-          console.log('FinalIteration', finalIteration);
-
           event['s3FileParser'] = {
             'results': {
               'startByte': startByte + lastNewline + 1,
-              'finished': finalIteration
+              'finished': finalIteration,
+              'headers': headers
             }
           };
           resolve(event);
@@ -71,38 +63,31 @@ export async function s3FileParser(event, context, cb) {
     });
   }
   else {
-    startByte = event['s3FileParser']['results']['startByte'];
-    console.log({ startByte });
+    const startByte = event['s3FileParser']['results']['startByte'];
+    const headers = event['s3FileParser']['results']['headers'];
     let endByte = startByte + chunkSize;
+    let lastNewline = 0;
 
     if (endByte > fileSize) endByte = fileSize;
 
     const finalIteration = isFinalIteration(startByte, fileSize, chunkSize);
-
     const range = `bytes=${startByte}-${endByte}`;
     const stream = s3.getObject({ ...params, Range: range }).createReadStream();
-
-    let lastNewline = 0;
 
     await new Promise(function (resolve, reject) {
       stream
         .pipe(new Transform({
-          transform(chunk, enconding, cb) {
-            const dataString = chunk.toString();
+          transform(chunk: Buffer, enconding, cb) {
             if (finalIteration) {
-              cb(null, dataString);
+              cb(null, chunk);
             } else {
-
-              lastNewline = dataString.lastIndexOf('\n');
-
-              console.log(finalIteration);
-
-              cb(null, dataString.slice(0, lastNewline));
+              lastNewline = chunk.lastIndexOf('\n');
+              cb(null, chunk.subarray(0, lastNewline));
             }
           }
         }))
         .pipe(csv.parse({
-          headers: ['name', 'lat', 'lng', 'countryCode', 'adminName']
+          headers: [...headers]
         }))
         .on('data', (data) => { console.log(data); })
         .on('error', (error) => {
@@ -111,12 +96,12 @@ export async function s3FileParser(event, context, cb) {
         })
         .on('end', (rows, data) => {
           console.log(`Parsed ${rows} rows`);
-          console.log('FinalIteration', finalIteration);
 
           event['s3FileParser'] = {
             'results': {
               'startByte': startByte + lastNewline + 1,
-              'finished': finalIteration
+              'finished': finalIteration,
+              'headers': headers
             }
           };
 
@@ -125,7 +110,7 @@ export async function s3FileParser(event, context, cb) {
     });
   }
 
-  console.log(event);
+  //console.log(event); Event with s3FileParser Object
   return event;
 }
 
