@@ -5,6 +5,7 @@ custom:
   bucket: csv-file-parser
   stateMachineName: csv-process-state-machine
   roleName: amazon-event-bridge-invoke-step-functions
+  sqsName: s3-queue
 
 provider:
   name: aws
@@ -17,6 +18,10 @@ provider:
           Action:
             - s3:*
           Resource: "*"
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+          Resource: ["arn:aws:sqs:::${self:custom.sqsName}"]
   memorySize: 512
   timeout: 180
   environment:
@@ -103,6 +108,10 @@ resources:
           - Arn: arn:aws:states:${aws:region}:${aws:accountId}:stateMachine:${self:custom.stateMachineName}
             Id: "${self:custom.stateMachineName}"
             RoleArn: arn:aws:iam::${aws:accountId}:role/${self:custom.roleName}
+    Queue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.sqsName}
 
 plugins:
   - serverless-esbuild

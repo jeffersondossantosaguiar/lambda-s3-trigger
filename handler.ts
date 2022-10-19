@@ -20,8 +20,6 @@ export async function s3FileParser(event: S3EventBridge) {
 
   await s3.headObject(params).promise().then(result => fileSize = result.ContentLength);
 
-  //console.log(event['s3FileParser']); Event with file metadata
-
   if (!event['s3FileParser']) {
     const startByte = 0;
     let headers: string[];
@@ -36,8 +34,8 @@ export async function s3FileParser(event: S3EventBridge) {
       let lastNewline = 0;
       stream
         .pipe(new Transform({
-          transform(chunk: Buffer, enconding, cb) {
-            lastNewline = chunk.lastIndexOf('\n');
+          transform(chunk: Buffer, encoding, cb) {
+            lastNewline = chunk.lastIndexOf('\n', -1);
             cb(null, chunk.subarray(0, lastNewline));
           }
         }))
@@ -81,14 +79,12 @@ export async function s3FileParser(event: S3EventBridge) {
             if (finalIteration) {
               cb(null, chunk);
             } else {
-              lastNewline = chunk.lastIndexOf('\n');
+              lastNewline = chunk.lastIndexOf('\n', chunkSize - 500);
               cb(null, chunk.subarray(0, lastNewline));
             }
           }
         }))
-        .pipe(csv.parse({
-          headers: [...headers]
-        }))
+        .pipe(csv.parse({ headers: [...headers] }))
         .on('data', (data) => { console.log(data); })
         .on('error', (error) => {
           console.error(error);
@@ -108,9 +104,12 @@ export async function s3FileParser(event: S3EventBridge) {
           resolve(rows);
         });
     });
+
+    if (finalIteration)
+      console.log(event);
   }
 
-  //console.log(event); Event with s3FileParser Object
+  //console.log(event); //Event with s3FileParser Object
   return event;
 }
 
